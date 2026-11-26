@@ -1,4 +1,4 @@
-/* Review pane (rvx) v1.0.0 · a floating feedback overlay for HTML prototypes under review.
+/* Review pane (rvx) v1.1.0 · a floating feedback overlay for HTML prototypes under review.
    Source: https://github.com/pat-madhav/mojo-skills (skills/review-pane/rvx.js) · MIT licence.
    Page needs two JSON script tags: id="rv-data" holds the asks [{"n":1,"ask":"Summary line","changed":"What changed","go":"#css-selector"}],
    id="rv-state" holds the marks ({} at first; Save copy writes them there). Load this file in a script tag with id="rvx-js"
@@ -21,7 +21,10 @@ const E='cubic-bezier(.2,0,0,1)';
 const css=`
 :root{--rvx-glass:rgb(252 251 248/.74);--rvx-ink:#1d2230;--rvx-mu:#5b6072;--rvx-field:rgb(31 35 40/.06);--rvx-sh:0 10px 28px rgb(20 24 34/.16),0 2px 6px rgb(20 24 34/.10);
  --rvx-pri:#3170c9;--rvx-prih:#2a62b3;--rvx-ok:#2f8a3a;--rvx-okb:#e3f1de;--rvx-no:#c4313a;--rvx-nob:#fbe8e7;--rvx-line:rgb(124 92 255/.55);
- --rvx-rainbow:#4f8bff,#a35cff,#ff5ca8,#ff9f45,#3fd0c9,#4f8bff}
+ --rvx-rainbow:#4f8bff,#a35cff,#ff5ca8,#ff9f45,#3fd0c9,#4f8bff;
+ /* decision tiles: the same colours in light and dark themes */
+ --rvx-yes:#d6f0d4;--rvx-yes-h:#c3e8c0;--rvx-yes-ink:#1d6a2a;--rvx-yes-on:#1d7a32;--rvx-yes-on-ink:#fff;
+ --rvx-nay:#fadcda;--rvx-nay-h:#f6c9c6;--rvx-nay-ink:#a3202a;--rvx-nay-on:#a81f29;--rvx-nay-on-ink:#fff;--rvx-nay-glow:0 0 0 3px rgb(224 52 60/.30),0 0 18px 3px rgb(232 40 48/.55)}
 @media (prefers-color-scheme:dark){:root{--rvx-glass:rgb(34 41 49/.74);--rvx-ink:#f5f7fa;--rvx-mu:#a5adb7;--rvx-field:rgb(255 255 255/.07);--rvx-sh:0 12px 30px rgb(0 0 0/.5),0 2px 6px rgb(0 0 0/.4);
  --rvx-ok:#56d364;--rvx-okb:#14291a;--rvx-no:#ff7b72;--rvx-nob:#3a1719;--rvx-line:rgb(170 140 255/.6)}}
 @property --rvx-a{syntax:'<angle>';inherits:false;initial-value:0deg}
@@ -33,13 +36,18 @@ const css=`
 .rvx.drag,.rvx.still{transition:none}
 .rvx button{font:inherit;color:inherit}
 .rvx :focus-visible,.rvx-menu :focus-visible,.rvx-dock:focus-visible{outline:2px solid var(--rvx-pri);outline-offset:2px}
-/* top row: the decision tiles sit on the left edge, navigation and save on the right */
+/* top row: navigation, save and the list on the left; the decision tiles on the right edge */
 .rvx-acts{display:flex;align-items:center;gap:8px}
 .rvx-t{width:38px;height:38px;border:0;border-radius:50%;display:grid;place-items:center;cursor:pointer;padding:0;transition:background-color .2s,color .2s,transform .12s}
 .rvx-t:active{transform:scale(.92)}
 .rvx-t svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:22;stroke-linecap:round;stroke-linejoin:round}
-.rvx-t.ok[aria-pressed="true"]{background:var(--rvx-okb);color:var(--rvx-ok)}
-.rvx-t.no[aria-pressed="true"]{background:var(--rvx-nob);color:var(--rvx-no)}
+.rvx-t.ok{background:var(--rvx-yes);color:var(--rvx-yes-ink)}
+.rvx-t.ok:hover{background:var(--rvx-yes-h)}
+.rvx-t.ok[aria-pressed="true"]{background:var(--rvx-yes-on);color:var(--rvx-yes-on-ink)}
+.rvx-t.no{background:var(--rvx-nay);color:var(--rvx-nay-ink)}
+.rvx-t.no:hover{background:var(--rvx-nay-h)}
+.rvx-t.no[aria-pressed="true"]{background:var(--rvx-nay-on);color:var(--rvx-nay-on-ink);box-shadow:var(--rvx-sh),var(--rvx-nay-glow)}
+.rvx-t.ok,.rvx-t.no{-webkit-backdrop-filter:none;backdrop-filter:none;transition:background-color .2s,color .2s,box-shadow .25s,transform .12s}
 .rvx-t.save{background:var(--rvx-pri);color:#fff}
 .rvx-t.save:hover{background:var(--rvx-prih)}
 .rvx-sp{flex:1}
@@ -115,12 +123,12 @@ const ICO={ok:svg('<path d="M44 136l52 52 116-116"/>'),no:svg('<path d="M64 64l1
 const el=(tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;e.dataset.rvx='';return e};
 const P=el('section','rvx');P.setAttribute('aria-label','Review: '+TITLE);
 P.innerHTML='<div class="rvx-acts">'
- +'<button type="button" class="rvx-t rvx-g ok" aria-pressed="false" aria-label="Approve" title="Approve">'+ICO.ok+'</button>'
- +'<button type="button" class="rvx-t rvx-g no" aria-pressed="false" aria-label="Not right yet, add a note" title="Not right yet">'+ICO.no+'</button>'
- +'<span class="rvx-sp"></span>'
  +'<span class="rvx-nav rvx-g"><button type="button" data-d="-1" aria-label="Previous ask" title="Previous · [">'+ICO.prev+'</button><span class="rvx-pos" aria-live="polite"></span><button type="button" data-d="1" aria-label="Next ask" title="Next · ]">'+ICO.next+'</button></span>'
  +'<button type="button" class="rvx-t rvx-g save" data-rvx-save aria-label="Save a copy with your marks" title="Save a copy with your marks">'+ICO.save+'</button>'
  +'<button type="button" class="rvx-t rvx-g lst" aria-haspopup="dialog" aria-expanded="false" aria-label="All asks, copy feedback" title="All asks">'+ICO.list+'</button>'
+ +'<span class="rvx-sp"></span>'
+ +'<button type="button" class="rvx-t rvx-g ok" aria-pressed="false" aria-label="Approve" title="Approve">'+ICO.ok+'</button>'
+ +'<button type="button" class="rvx-t rvx-g no" aria-pressed="false" aria-label="Not right yet, add a note" title="Not right yet">'+ICO.no+'</button>'
  +'</div>'
  +'<div class="rvx-sum rvx-g" title="Drag to move · double-click to follow the changes again"><span class="rvx-n"></span><span class="rvx-txt"></span></div>'
  +'<div class="rvx-dw"><div><div class="rvx-det rvx-g" role="region" aria-label="Details"><b>What changed</b><p class="rvx-ch"></p><div class="rvx-nw" hidden><b>Your note</b><textarea class="rvx-ta" aria-label="What is still not right"></textarea><div class="rvx-hint">Ctrl or ⌘ + Enter saves and moves to the next ask</div></div></div></div></div>';
@@ -149,17 +157,37 @@ function occ(){let b=0;if(OCC)document.querySelectorAll(OCC).forEach(e=>{const r
 function tRect(){const t=target();if(!t)return null;const r=t.getBoundingClientRect();if(!r.width&&!r.height)return null;const top=Math.max(r.top-6,occ()),bot=Math.min(r.bottom+6,innerHeight);
  if(bot-top<8)return null;return {left:r.left-6,top:top,right:r.right+6,bottom:bot,width:r.width+12,height:bot-top}}
 let pos={x:0,y:0};const manual=()=>!!st._pos;
-function size(){return {w:P.offsetWidth,h:P.offsetHeight}}
-function clampPos(x,y){const {w,h}=size(),pad=12,need=Math.max(h,150);return {x:Math.min(Math.max(pad,x),innerWidth-w-pad),y:Math.max(pad+occ(),Math.min(y,floor()-need-pad))}}
+/* the pane's full height: top row + pill, plus the details card when it is open (measured at its final size, not mid-slide) */
+function effH(open){const o=open==null?P.classList.contains('open'):open;return $('.rvx-acts').offsetHeight+8+SUM.offsetHeight+(o?8+$('.rvx-det').offsetHeight:0)}
+function size(){return {w:P.offsetWidth,h:effH()}}
+function clampPos(x,y,h){const w=P.offsetWidth,pad=12;h=h==null?Math.max(effH(),150):h;return {x:Math.min(Math.max(pad,x),innerWidth-w-pad),y:Math.max(pad+occ(),Math.min(y,floor()-h-pad))}}
 function setPos(p,still){if(still)P.classList.add('still');pos=clampPos(p.x,p.y);P.style.transform='translate('+pos.x+'px,'+pos.y+'px)';if(still){void P.offsetWidth;P.classList.remove('still')}}
-function autoPlace(still){if(manual()){setPos(st._pos,still);return}
- const r=tRect(),{w}=size(),hh=150+56,pad=16,top0=occ()+pad;let p=null;
- if(r){if(r.right+24+w<=innerWidth-pad)p={x:r.right+24,y:r.top};
-  else if(r.left-24-w>=pad)p={x:r.left-24-w,y:r.top};
-  else if(r.bottom+16+hh<=floor()-pad)p={x:r.left,y:r.bottom+16};
-  else if(r.top-16-hh>=top0)p={x:r.left,y:r.top-16-hh}}
- if(!p)p={x:innerWidth-w-pad-8,y:floor()-hh-pad};
- setPos(p,still)}
+/* get out of the way: if the pane (with its details card when open) covers the change, find the nearest clear spot */
+const GAP=16;
+const ovl=(a,b)=>{const w=Math.min(a.right,b.right)-Math.max(a.left,b.left),h=Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top);return w>0&&h>0?w*h:0};
+function clear(p){const t=target();if(!t||P.contains(t))return p;const r=tRect();if(!r)return p;const h=effH(),w=P.offsetWidth,bx=q=>({left:q.x,top:q.y,right:q.x+w,bottom:q.y+h});
+ const here=ovl(bx(p),r);if(!here)return p;
+ const raw=[{x:r.right+GAP,y:p.y},{x:r.left-GAP-w,y:p.y},{x:p.x,y:r.bottom+GAP},{x:p.x,y:r.top-GAP-h},
+  {x:r.right+GAP,y:r.top},{x:r.left-GAP-w,y:r.top},{x:r.left,y:r.bottom+GAP},{x:r.left,y:r.top-GAP-h}];
+ let best=null,bs=Infinity;raw.forEach(c=>{const q=clampPos(c.x,c.y,h),o=ovl(bx(q),r),s=o*1000+Math.hypot(q.x-p.x,q.y-p.y);if(s<bs){bs=s;best=q}});
+ return best&&ovl(bx(best),r)<here?best:p}
+function autoPlace(still){let p=null;
+ if(manual())p=st._pos;
+ else{const r=tRect(),w=P.offsetWidth,hh=Math.max(effH(),150),pad=16,top0=occ()+pad;
+  if(r){if(r.right+24+w<=innerWidth-pad)p={x:r.right+24,y:r.top};
+   else if(r.left-24-w>=pad)p={x:r.left-24-w,y:r.top};
+   else if(r.bottom+16+hh<=floor()-pad)p={x:r.left,y:r.bottom+16};
+   else if(r.top-16-hh>=top0)p={x:r.left,y:r.top-16-hh}}
+  if(!p)p={x:innerWidth-w-pad-8,y:floor()-hh-pad}}
+ setPos(clear(clampPos(p.x,p.y)),still)}
+/* glide aside from wherever the pane is now; it never jumps back, so a closing card leaves it where it is */
+let hold=null,ptr={x:-1,y:-1};
+function dist(b,q){const dx=Math.max(b.left-q.x,0,q.x-b.right),dy=Math.max(b.top-q.y,0,q.y-b.bottom);return Math.hypot(dx,dy)}
+function reclear(){if(dr||P.hidden)return;const q=clear(pos);if(Math.abs(q.x-pos.x)<1&&Math.abs(q.y-pos.y)<1)return;
+ const hovering=hov>0&&!pin&&P.contains(document.elementFromPoint(ptr.x,ptr.y));
+ setPos(q);follow(520);
+ /* the pane slid out from under the pointer while showing its details: keep them open until the pointer heads away */
+ if(hovering){hold={d:null};setTimeout(()=>{if(hold)hold.d=dist(P.getBoundingClientRect(),ptr)},480)}}
 function near(p,r){return {x:Math.min(Math.max(p.x,r.left),r.right),y:Math.min(Math.max(p.y,r.top),r.bottom)}}
 function frame(){raf=0;const r=tRect();
  if(!r||P.hidden){HL.classList.remove('on');LN.classList.remove('on');return}
@@ -174,9 +202,10 @@ function follow(ms){const end=performance.now()+ms;const f=()=>{frame();if(perfo
 
 /* ---------- open / close the details ---------- */
 let pin=false,hov=0,closeT;
-function setOpen(){const o=pin||hov>0;P.classList.toggle('open',o)}
-function enter(){hov=1;clearTimeout(closeT);setOpen()}
-function leave(){clearTimeout(closeT);closeT=setTimeout(()=>{hov=0;setOpen()},260)}
+function setOpen(){const o=pin||hov>0;if(!o)hold=null;const was=P.classList.contains('open');P.classList.toggle('open',o);if(o&&!was)reclear()}
+function enter(){hov=1;hold=null;clearTimeout(closeT);setOpen()}
+function leave(){if(hold)return;clearTimeout(closeT);closeT=setTimeout(()=>{if(!hold){hov=0;setOpen()}},260)}
+document.addEventListener('pointermove',e=>{ptr={x:e.clientX,y:e.clientY};if(hold&&hold.d!=null&&!P.contains(e.target)&&!(tEl&&tEl.contains(e.target))&&dist(P.getBoundingClientRect(),ptr)>hold.d+40){hold=null;leave()}},{passive:true,capture:true});
 P.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')enter()});P.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')leave()});
 let tEl=null;function bindTarget(){if(tEl){tEl.removeEventListener('pointerenter',enter);tEl.removeEventListener('pointerleave',leave)}tEl=target();if(tEl){tEl.addEventListener('pointerenter',enter);tEl.addEventListener('pointerleave',leave)}}
 
@@ -187,7 +216,7 @@ function scrollToTarget(){const t=target();if(!t)return Promise.resolve();const 
  if(Math.abs(y-scrollY)<4)return Promise.resolve();
  return new Promise(res=>{if(RM.matches){scrollTo(0,y);res();return}const y0=scrollY,t0=performance.now(),d=Math.min(700,260+Math.abs(y-y0)*.25);
   const ease=k=>1-Math.pow(1-k,3);const step=now=>{const k=Math.min(1,(now-t0)/d);scrollTo(0,y0+(y-y0)*ease(k));frame();if(k<1)requestAnimationFrame(step);else res()};requestAnimationFrame(step)})}
-function go(i,o){o=o||{};cur=(i+IT.length)%IT.length;st._cur=IT[cur].n;save();paint();bindTarget();pin=S(IT[cur].n)==='no'&&o.note;setOpen();
+function go(i,o){o=o||{};hold=null;cur=(i+IT.length)%IT.length;st._cur=IT[cur].n;save();paint();bindTarget();pin=S(IT[cur].n)==='no'&&o.note;setOpen();
  HL.classList.remove('dim');clearTimeout(dimT);
  const done=()=>{autoPlace();follow(500);frame();dimT=setTimeout(()=>HL.classList.add('dim'),3500)};
  if(o.scroll===false){done();return}scrollToTarget().then(done)}
@@ -207,7 +236,7 @@ SUM.addEventListener('pointerdown',e=>{if(e.button!==0)return;dr={x:e.clientX,y:
 SUM.addEventListener('pointermove',e=>{if(!dr)return;const dx=e.clientX-dr.x,dy=e.clientY-dr.y;if(!dr.moved&&Math.hypot(dx,dy)<4)return;if(!dr.moved){dr.moved=true;P.classList.add('drag')}
  setPos({x:dr.px+dx,y:dr.py+dy});frame()});
 SUM.addEventListener('pointerup',e=>{if(!dr)return;const m=dr.moved;dr=null;P.classList.remove('drag');
- if(m){st._pos={x:pos.x,y:pos.y};save();MN.querySelector('.fl').hidden=false}else if(e.pointerType!=='mouse'){hov=hov?0:1;setOpen()}});
+ if(m){st._pos={x:pos.x,y:pos.y};save();MN.querySelector('.fl').hidden=false;reclear()}else if(e.pointerType!=='mouse'){hov=hov?0:1;setOpen()}});
 SUM.addEventListener('dblclick',()=>{delete st._pos;save();MN.querySelector('.fl').hidden=true;autoPlace();follow(500);say('The pane follows the changes again')});
 
 /* ---------- list, copy, save, hide ---------- */
@@ -235,7 +264,8 @@ $('[data-rvx-save]').addEventListener('click',async()=>{save();const c=document.
 document.addEventListener('pointerdown',e=>{if(!MN.hidden&&!MN.contains(e.target)&&!e.target.closest('.rvx-t.lst'))closeMenu()},true);
 document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('input,textarea,select,[contenteditable]'))return;if(e.metaKey||e.ctrlKey||e.altKey)return;
  if(e.key==='[')go(cur-1);else if(e.key===']')go(cur+1);else if(e.key==='Escape'&&!MN.hidden)closeMenu()});
-addEventListener('scroll',tick,{passive:true});addEventListener('resize',()=>{autoPlace(true);tick()});
+let scT;addEventListener('scroll',()=>{tick();clearTimeout(scT);scT=setTimeout(reclear,140)},{passive:true});
+window.rvx={version:'1.1.0'};addEventListener('resize',()=>{autoPlace(true);tick()});
 paint();bindTarget();P.hidden=!!st._hidden;DK.hidden=!st._hidden;
 requestAnimationFrame(()=>{autoPlace(true);frame()});addEventListener('load',()=>{autoPlace(true);frame()});
 })();
