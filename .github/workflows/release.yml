@@ -1,0 +1,79 @@
+name: Release
+# Push a tag such as v1.1.0. The pane is tested in a headless browser first;
+# only a passing tag is published to npm (for jsDelivr), GitHub Releases and GitHub Pages.
+on:
+  push:
+    tags: ['v*.*.*']
+permissions:
+  contents: write
+  id-token: write
+  pages: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  test:
+    name: Test the pane before release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tag matches the versions in the repo
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          test "$(node -p "require('./package.json').version")" = "$V"
+          test "$(node -p "require('./.claude-plugin/plugin.json').version")" = "$V"
+          head -1 skills/review-pane/rvx.js | grep -q "v$V "
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pane-screenshots
+          path: tests/shots/
+
+  npm:
+    name: Publish to npm
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  github-release:
+    name: GitHub release
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  pages:
+    name: GitHub Pages
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: bash scripts/build-pages.sh _site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

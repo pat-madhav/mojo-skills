@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Review pane test page</title>
+<style>
+/* A plain stand-in for a prototype under review: sticky header, cards, a wide table, a fixed bottom bar. */
+:root{--bg:#f6f5f1;--card:#fff;--ink:#22252e;--mu:#62677a;--line:#e3e1db;--pri:#3170c9}
+@media (prefers-color-scheme:dark){:root{--bg:#151a21;--card:#212831;--ink:#f1f4f8;--mu:#a4acb8;--line:#2e3640;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:14px 16px}
+header h1{margin:0;font-size:20px}
+main{max-width:1200px;margin:0 auto;padding:16px 16px 140px;display:flex;flex-direction:column;gap:16px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.card{background:var(--card);border-radius:14px;padding:16px}
+.card b{display:block;font-size:28px}
+.tw{background:var(--card);border-radius:14px;overflow-x:auto}
+table{width:100%;min-width:720px;border-collapse:collapse}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+.btn{border:0;border-radius:999px;padding:8px 14px;background:var(--pri);color:#fff;font:inherit;font-weight:600}
+.bar{position:fixed;left:16px;right:16px;bottom:16px;z-index:5;background:var(--card);border-radius:16px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 8px 24px rgb(0 0 0/.15)}
+p.long{max-width:65ch}
+</style>
+</head>
+<body>
+<header id="hdr"><h1>Orders review</h1></header>
+<main>
+ <section class="cards">
+  <div class="card" id="c-open"><span>Open orders</span><b>128</b></div>
+  <div class="card" id="c-late"><span>Late</span><b>7</b></div>
+  <div class="card" id="c-value"><span>Value</span><b>$41,920</b></div>
+  <div class="card" id="c-ship"><span>Shipped today</span><b>36</b></div>
+ </section>
+ <p class="long" id="intro">Each row is one order. The sample data repeats so the table is tall enough to scroll, which lets the test check that the pane keeps clear of a change while the page moves under it.</p>
+ <div class="tw"><table id="orders">
+  <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
+  <tbody id="rows"></tbody>
+ </table></div>
+ <section class="card" id="notes"><h2 style="margin:0 0 6px;font-size:16px">Notes</h2><p class="long" style="margin:0">Delivery windows move to the customer's local time from next week.</p></section>
+</main>
+<div class="bar" id="bar"><span>3 orders need a decision</span><button class="btn" id="go">Ship selected</button></div>
+<script>
+const rows=document.getElementById('rows');const names=['Ada Shah','Ben Ortiz','Chen Li','Dara Moss','Eli Park','Fay Nunez','Gus Ito','Hana Roy'];
+for(let i=0;i<24;i++){const tr=document.createElement('tr');tr.id='r'+(i+1);tr.innerHTML='<td>#'+(5100+i)+'</td><td>'+names[i%8]+'</td><td>'+(1+i%5)+'</td><td>$'+(40+i*17)+'.00</td><td>'+(i%4?'Packed':'Late')+'</td><td><button class="btn">Open</button></td>';rows.append(tr)}
+</script>
+<script type="application/json" id="rv-data">[
+ {"n":1,"ask":"Late count in red","changed":"The Late card number is red when above zero.","go":"#c-late"},
+ {"n":2,"ask":"Sticky table header","changed":"The table header stays under the page header while you scroll.","go":"#orders thead tr"},
+ {"n":3,"ask":"Open button on every row","changed":"Each row ends with an Open button.","go":"#r9 td:last-child"},
+ {"n":4,"ask":"Notes card","changed":"A Notes card sits under the table.","go":"#notes"},
+ {"n":5,"ask":"Save copy works here","changed":"Save copy writes your marks into the page.","go":"[data-rvx-save]"},
+ {"n":6,"ask":"Bottom bar","changed":"The bar floats over the page with a shadow.","go":"#bar"}
+]</script>
+<script type="application/json" id="rv-state">{}</script>
+<script id="rvx-js" src="../skills/review-pane/rvx.js" data-title="Orders review" data-key="rvx-test" data-occlude="#hdr" data-avoid="#bar"></script>
+</body>
+</html>

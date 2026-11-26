@@ -1,0 +1,14 @@
+{
+  "name": "mojo",
+  "owner": { "name": "Pattabhi Madhavaram" },
+  "description": "Mojo's agent skills as an installable plugin.",
+  "plugins": [
+    {
+      "name": "mojo-skills",
+      "source": "./",
+      "description": "review-pane and more: tool-neutral agent skills.",
+      "category": "productivity",
+      "keywords": ["skills", "review", "prototype"]
+    }
+  ]
+}

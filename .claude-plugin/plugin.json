@@ -1,0 +1,10 @@
+{
+  "name": "mojo-skills",
+  "version": "1.0.0",
+  "description": "Mojo's agent skills: review-pane, a floating approve/reject review overlay for HTML prototypes, with its review-round routine.",
+  "author": { "name": "Pattabhi Madhavaram" },
+  "license": "MIT",
+  "repository": "https://github.com/pat-madhav/mojo-skills",
+  "keywords": ["skills", "review", "prototype", "html"],
+  "skills": ["./skills/review-pane"]
+}

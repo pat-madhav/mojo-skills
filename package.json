@@ -1,0 +1,17 @@
+{
+  "name": "mojo-skills",
+  "version": "1.0.0",
+  "description": "Mojo's agent skills, tool-neutral: review-pane (a floating approve/reject review overlay for HTML prototypes) and more.",
+  "license": "MIT",
+  "author": "Pattabhi Madhavaram",
+  "repository": { "type": "git", "url": "git+https://github.com/pat-madhav/mojo-skills.git" },
+  "homepage": "https://github.com/pat-madhav/mojo-skills#readme",
+  "keywords": ["agent-skills", "claude-code", "codex", "cursor", "review", "prototype"],
+  "files": ["skills/", "README.md", "LICENSE", "CHANGELOG.md"],
+  "scripts": {
+    "test": "node tests/pane.test.js"
+  },
+  "devDependencies": {
+    "playwright": "1.65.0"
+  }
+}
