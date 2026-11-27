@@ -18,7 +18,7 @@ Put these three tags at the end of the page's `<body>`:
   {"n":1,"ask":"Short summary of the ask","changed":"What changed, in a sentence or two","go":"#css-selector-of-the-change"}
 ]</script>
 <script type="application/json" id="rv-state">{}</script>
-<script id="rvx-js" src="https://cdn.jsdelivr.net/npm/mojo-skills@1.1.0/skills/review-pane/rvx.js"
+<script id="rvx-js" src="https://cdn.jsdelivr.net/npm/mojo-skills@1.2.0/skills/review-pane/rvx.js"
   data-title="Page name" data-key="page-name-rvx-v1"></script>
 ```
 
@@ -26,7 +26,7 @@ Pick the address by how the page should follow releases:
 
 | Address | Loads |
 |---|---|
-| `…/npm/mojo-skills@1.1.0/skills/review-pane/rvx.js` | exactly v1.1.0, never changes (default for published pages) |
+| `…/npm/mojo-skills@1.2.0/skills/review-pane/rvx.js` | exactly v1.2.0, never changes (default for published pages) |
 | `…/npm/mojo-skills@1/skills/review-pane/rvx.js` | the latest 1.x release |
 | `https://pat-madhav.github.io/mojo-skills/review-pane/rvx.js` | the latest release, for pages opened outside claude.ai |
 

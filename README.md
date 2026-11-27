@@ -56,17 +56,17 @@ Change `-a cursor` to your agent, or leave `-a` out to choose from a list.
 
 ## Using rvx.js on a page
 
-`skills/review-pane/rvx.js` is the single source of the review pane. Pages load it; they never hold a copy. Every release is tagged (`v1.0.0`, `v1.1.0` …) and published to npm, so jsDelivr serves it:
+`skills/review-pane/rvx.js` is the single source of the review pane. Pages load it; they never hold a copy. Every release is tagged (`v1.0.0`, `v1.1.0`, `v1.2.0` …) and published to npm, so jsDelivr serves it:
 
 ```html
 <!-- stay on one release -->
-<script id="rvx-js" src="https://cdn.jsdelivr.net/npm/mojo-skills@1.1.0/skills/review-pane/rvx.js"></script>
+<script id="rvx-js" src="https://cdn.jsdelivr.net/npm/mojo-skills@1.2.0/skills/review-pane/rvx.js"></script>
 
 <!-- follow the latest 1.x release -->
 <script id="rvx-js" src="https://cdn.jsdelivr.net/npm/mojo-skills@1/skills/review-pane/rvx.js"></script>
 ```
 
-GitHub Pages serves the same files at `https://pat-madhav.github.io/mojo-skills/review-pane/rvx.js` (latest), `…/review-pane/v1/rvx.js` (latest 1.x) and `…/review-pane/v1.1.0/rvx.js` (fixed). claude.ai artifact pages may only load scripts from npm CDNs, so use the jsDelivr address there.
+GitHub Pages serves the same files at `https://pat-madhav.github.io/mojo-skills/review-pane/rvx.js` (latest), `…/review-pane/v1/rvx.js` (latest 1.x) and `…/review-pane/v1.2.0/rvx.js` (fixed). claude.ai artifact pages may only load scripts from npm CDNs, so use the jsDelivr address there.
 
 The page also needs its asks and a place for the marks. See [the review-pane skill](skills/review-pane/SKILL.md).
 
