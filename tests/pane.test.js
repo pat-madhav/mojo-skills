@@ -1,6 +1,7 @@
 // Release check for skills/review-pane/rvx.js. Drives the review pane in Chromium: light, dark and 390px phone width.
 // For each theme/size: steps through every ask, opens the details card, and checks the pane
-// never covers the highlighted change; forces an overlap by dragging; checks tile colours.
+// never covers the highlighted change; drags the pane by hand (it must stay where it is put, reach the corners
+// and open its details upward at the bottom edge); clicks the pill to return to a change; checks tile colours.
 const { chromium } = require('playwright');
 const path = require('path');
 const page_url = 'file://' + path.resolve(process.argv[2] || path.join(__dirname, 'fixture.html'));
@@ -32,6 +33,8 @@ const ovl = (a, b) => { const w = Math.min(a.right, b.right) - Math.max(a.left, 
     // v1.0.0 predates the get-out-of-the-way and colour rules, so it gets the smoke checks only
     const modern = !!R.version;
     const fail = () => { if (modern) fails++; };
+    // 1.2.0: a pane placed by hand stays put, reaches the corners, and the pill returns to the change
+    const placed = modern && R.version.localeCompare('1.2.0', undefined, { numeric: true }) >= 0;
 
     // layout: arrows left, decision tiles right
     R.order = await page.evaluate(() => [...document.querySelectorAll('.rvx-acts > *')].map(e => e.className.replace('rvx-g', '').replace(/\s+/g, ' ').trim()));
@@ -39,10 +42,10 @@ const ovl = (a, b) => { const w = Math.min(a.right, b.right) - Math.max(a.left, 
 
     const measure = async () => page.evaluate(() => {
       const r = e => { const b = e.getBoundingClientRect(); return { left: b.left, top: b.top, right: b.right, bottom: b.bottom }; };
-      const P = document.querySelector('.rvx'), hl = document.querySelector('.rvx-hl'), ln = document.querySelector('.rvx-ln line');
+      const P = document.querySelector('.rvx'), hl = document.querySelector('.rvx-hl'), ln = document.querySelector('.rvx-ln path') || document.querySelector('.rvx-ln line');
       const det = document.querySelector('.rvx-det');
       return { pane: r(P), det: P.classList.contains('open') ? r(det) : null, hl: hl.classList.contains('on') ? r(hl) : null,
-        line: document.querySelector('.rvx-ln').classList.contains('on') ? { x1: +ln.getAttribute('x1'), y1: +ln.getAttribute('y1'), x2: +ln.getAttribute('x2'), y2: +ln.getAttribute('y2') } : null,
+        line: document.querySelector('.rvx-ln').classList.contains('on') ? { d: ln.getAttribute('d') || [ln.getAttribute('x1'), ln.getAttribute('y1'), ln.getAttribute('x2'), ln.getAttribute('y2')].join(' ') } : null,
         sum: r(document.querySelector('.rvx-sum')), open: P.classList.contains('open'), pos: document.querySelector('.rvx-pos').textContent };
     });
 
@@ -87,10 +90,38 @@ const ovl = (a, b) => { const w = Math.min(a.right, b.right) - Math.max(a.left, 
       const after = await measure();
       const steps = trail.map((t, k) => k ? Math.hypot(t.x - trail[k - 1].x, t.y - trail[k - 1].y) : 0);
       R.drag = { ask: want, coveredOnDrop: ovl(dropped.pane, dropped.hl), coveredAfter: ovl(after.pane, after.hl), framesMoving: steps.filter(d => d > 0.5).length, biggestStep: Math.round(Math.max(...steps)), lineAfter: !!after.line };
-      if (R.drag.coveredAfter) fail();
-      if (R.drag.framesMoving < 3) fail(); // a jump moves in one frame; a glide spreads over several
+      if (placed) {
+        if (R.drag.framesMoving) fail(); // a pane the reviewer placed must not move by itself
+      } else {
+        if (R.drag.coveredAfter) fail();
+        if (R.drag.framesMoving < 3) fail(); // a jump moves in one frame; a glide spreads over several
+      }
       await page.screenshot({ path: `${out}/${run.name}-after-drag.png` });
-      await page.dblclick('.rvx-sum'); await page.waitForTimeout(700);
+      if (placed && !run.mobile) {
+        const W = run.viewport.width, Hh = run.viewport.height;
+        const dragTo = async (x, y) => { const m = await measure(); await page.mouse.move((m.sum.left + m.sum.right) / 2, (m.sum.top + m.sum.bottom) / 2); await page.mouse.down(); await page.mouse.move(x, y, { steps: 8 }); await page.mouse.up(); await page.waitForTimeout(700); return measure(); };
+        // corners: the pill reaches within 8px of the edges, and the top row stays on screen
+        const tl = await dragTo(-400, -400), br = await dragTo(W + 400, Hh + 400);
+        await page.mouse.move(br.sum.left + 40, br.sum.top + 10); await page.waitForTimeout(900);
+        const brOpen = await measure();
+        R.corners = { topLeft: [Math.round(tl.sum.left), Math.round(tl.pane.top)], bottomRight: [Math.round(W - br.sum.right), Math.round(Hh - br.sum.bottom)], detailsAbove: !!(brOpen.det && brOpen.det.bottom <= brOpen.sum.top && brOpen.det.top >= 0) };
+        if (tl.sum.left > 8 || tl.pane.top > 8 || tl.pane.top < 0) fail();
+        if (W - br.sum.right > 8 || Hh - br.sum.bottom > 8 || br.sum.bottom > Hh) fail();
+        if (!R.corners.detailsAbove) fail();
+        await page.screenshot({ path: `${out}/${run.name}-corner.png` });
+        await page.mouse.move(5, 5); await page.waitForTimeout(500);
+        // scroll away, then click the pill: the page returns to the change
+        await dragTo(W - 260, Hh / 2);
+        await page.evaluate(() => scrollBy(0, 4000)); await page.waitForTimeout(600);
+        const away = await page.evaluate(() => ({ t: document.querySelector('.rvx').dataset.t, tag: document.querySelector('.rvx-tag').textContent }));
+        const s2 = (await measure()).sum; await page.mouse.click(s2.left + 60, (s2.top + s2.bottom) / 2); await page.waitForTimeout(1400);
+        const back = await page.evaluate(() => ({ t: document.querySelector('.rvx').dataset.t, hl: document.querySelector('.rvx-hl').classList.contains('on') }));
+        R.goBack = { away, back };
+        if (away.t === 'away' && (back.t !== 'on' || !back.hl)) fail();
+        if (away.t === 'away' && !away.tag) fail();
+      }
+      await page.dblclick('.rvx-sum'); await page.waitForTimeout(900);
+      if (placed) { const f = await measure(); R.followAgain = { covered: f.hl ? ovl(f.pane, f.hl) : 0 }; }
     }
 
     // tile colours at rest and chosen
